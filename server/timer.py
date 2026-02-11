@@ -8,11 +8,25 @@ logger = logging.getLogger("timer")
 
 
 class Timer:
-    """Represents a single instance of a timer.
+    """A countdown timer that can broadcast expiration and run commands.
 
-    Used by both Area (timer IDs 1-20) and AreaManager/Hub (timer ID 0).
-    The `parent` attribute references whichever object owns the timer
-    (an Area or an AreaManager); both expose `broadcast_ooc()` and `owners`.
+    Hubs own timer ID 0 (global). Areas own timer IDs 1-20 (local).
+    When the timer expires, it broadcasts an OOC message to the parent
+    and executes any queued commands as the caller.
+
+    Attributes:
+        id: Timer identifier (0 for hub-level, 1-20 for area-level).
+        set: Whether a duration has been configured.
+        started: Whether the timer is actively counting down.
+        static: The remaining time as a `datetime.timedelta`, or ``None``.
+        target: The `datetime.datetime` when the timer expires, or ``None``.
+        parent: The owning Area or AreaManager; must expose
+            ``broadcast_ooc()`` and ``owners``.
+        caller: The Client who set the timer; used for command execution.
+        schedule: Handle for the pending asyncio callback, or ``None``.
+        commands: List of OOC command strings to run on expiration.
+        format: Qt-style time format string sent to clients.
+        interval: Client-side tick interval in milliseconds.
     """
 
     def __init__(
