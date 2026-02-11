@@ -163,6 +163,8 @@ class ClientManager:
             self.viewing_hub_list = False
             # Whether or not the client used the /showname command
             self.used_showname_command = False
+            # if we're listening to OOC-broadcast actions
+            self.ooc_actions = True
 
             # Currently requested subtheme (DRO gamemode) of this client
             self.subtheme = ""
@@ -189,6 +191,9 @@ class ClientManager:
 
             # Battle system stuff
             self.battle = None
+            
+            # If only the available areas should be displayed even as a GM
+            self.available_areas_only = False
 
         def send_raw_message(self, msg):
             """
@@ -259,7 +264,7 @@ class ClientManager:
                         offset_pair_x = 0
                         offset_pair_y = 0
                         if len(args) > 20 and args[20]:
-                            offset = str(args[19]).replace('<and>', '&').split('&')
+                            offset = str(args[20]).replace('<and>', '&').split('&')
                             offset_pair_x = offset[0]
                             if len(offset) > 1:
                                 offset_pair_y = offset[1]
@@ -292,8 +297,8 @@ class ClientManager:
                             offset_pair_x_dro = 500
                             if offset_pair_x:
                                 offset_pair_x_dro = int((float(offset_pair_x) / 100) * 960 + 480) # other_offset
-                            pair_jsn_packet['data']['self_offset'] = self_offset_x
-                            pair_jsn_packet['data']['offset_pair'] = offset_pair_x
+                            pair_jsn_packet['data']['self_offset'] = self_offset_x_dro
+                            pair_jsn_packet['data']['offset_pair'] = offset_pair_x_dro
                             
                             # Send the result!
                             json_data = json.dumps(pair_jsn_packet)
@@ -435,6 +440,45 @@ class ClientManager:
             """Disconnect the client gracefully."""
             self.transport.close()
 
+        def record_latest_area(self):
+            """Record the client character's latest area if not in lobby, if not spectator and not GM/mod."""
+            if self.area.area_manager.default_area() != self.area and self.char_id != -1 and self not in self.area.owners and not self.is_mod:
+                self.area.area_manager.set_character_data(self.char_id, "latest_area", self.area.id)
+        
+        def kick_to_latest_area(self):
+            """Kick the client to their character's latest recorded area."""
+            latest_area = self.area.area_manager.get_character_data(
+                self.char_id, "latest_area", None
+            )
+            if latest_area == None:
+                return
+            
+            target_area = self.area.area_manager.get_area_by_id(latest_area)
+            if not target_area:
+                return
+            old_area = self.area
+            self.set_area(target_area)
+            self.send_ooc(
+                f"You were kicked from [{old_area.id}] {old_area.name} to [{target_area.id}] {target_area.name}."
+            )
+            old_area.invite_list.discard(self.id)
+            # Inform the CMs of the auto kick
+            self.area.send_owner_command(
+                "CT",
+                self.server.config["hostname"],
+                f"Kicked [{self.id}] {self.showname} from [{old_area.id}] {old_area.name} to [{target_area.id}] {target_area.name}.",
+                "1",
+            )
+            # send_owner_command does not broadcast to CMs present in the area, so let's do that manually
+            for c in self.area.owners:
+                if c in self.area.clients:
+                    c.send_command(
+                        "CT",
+                        self.server.config["hostname"],
+                        f"Kicked [{self.id}] {self.showname} from [{old_area.id}] {old_area.name} to [{target_area.id}] {target_area.name}.",
+                        "1",
+                    )
+
         def change_character(self, char_id, force=False):
             """
             Change the client's character or force the character selection
@@ -496,7 +540,7 @@ class ClientManager:
                 f"[{self.id}] {self.showname} changed character from {old_char} to {new_char}.",
                 "1",
             )
-            # send_owner_command does not tell CMs present in the area about evidence manipulation, so let's do that manually
+            # send_owner_command does not broadcast to CMs present in the area, so let's do that manually
             for c in self.area.owners:
                 if c in self.area.clients:
                     c.send_command(
@@ -505,13 +549,20 @@ class ClientManager:
                         f"[{self.id}] {self.showname} changed character from {old_char} to {new_char}.",
                         "1",
                     )
+
+            if self.area.area_manager.autokick_to_latest_area:
+                self.kick_to_latest_area()
+            else:     
+                # Record last known area ID for this character if not spectator/gm/mod, and hub autokick is not set
+                self.record_latest_area()
+
             self.area.update_timers(self, running_only=True)
             
             if not self.hidden and not self.sneaking:
                 self.area.broadcast_player_list()
             else:
                 self.area.broadcast_player_list_to_target(self)
-            self.area.broadcast_area_desc_to_target(self)
+            self.area.broadcast_area_desc_to_target(self)       
 
         def change_music_cd(self):
             """
@@ -716,6 +767,9 @@ class ClientManager:
                         area.play_music(name, self.char_id,
                                         length, showname, effects)
                         area.add_music_playing(self, name, showname)
+                        # Broadcast for the rest
+                        for a in area.broadcast_list:
+                            a.play_music(name, self.char_id, length, showname, effects)
                 # We only make one log entry to not CBT the log list. TODO: Broadcast logs
                 database.log_area("music", self, self.area, message=name)
             except ServerError:
@@ -954,7 +1008,9 @@ class ClientManager:
                 old_area.remove_client(self)
             self.area = area
 
-            if old_area.area_manager != area.area_manager and old_area.area_manager.char_list != area.area_manager.char_list:
+            # When swapping between hubs, if the new hub charlist is different from ours or if the target hub has character autokick enabled,
+            # bring up the character select screen for the client
+            if old_area.area_manager != area.area_manager and (area.area_manager.autokick_to_latest_area or old_area.area_manager.char_list != area.area_manager.char_list):
                 # Send them that hub's char list
                 self.area.area_manager.send_characters(self)
                 self.char_select()
@@ -966,7 +1022,10 @@ class ClientManager:
             if self not in self.area.clients:
                 self.area.new_client(self)
             if target_pos != "":
-                self.change_position(target_pos)
+                try:
+                    self.change_position(target_pos)
+                except ClientError:
+                    target_pos = ""
 
             # If we're using /evidence_present, reset it due to area change (evidence will be different most likely)
             self.presenting = 0
@@ -1040,6 +1099,9 @@ class ClientManager:
             # We failed to enter the same area as whoever we've been following, break the follow
             if self.following is not None and not (self.following in self.area.clients):
                 self.unfollow()
+
+            # Record last known area ID for this character if not spectator/gm/mod
+            self.record_latest_area()
 
             self.area.trigger("join", self)
 
@@ -1987,11 +2049,24 @@ class ClientManager:
         def inventory(self, value):
             """Set the character's inventory."""
             self.area.area_manager.set_character_data(
-                self.char_id, "inventory", value)
+                self.char_id, "inventory", list(value))
+
+        @property
+        def latest_area(self):
+            """Get the character's latest occupied area ID."""
+            return self.area.area_manager.get_character_data(
+                self.char_id, "latest_area", None
+            )
+
+        @inventory.setter
+        def latest_area(self, value):
+            """Set the character's latest occupied area ID."""
+            self.area.area_manager.set_character_data(
+                self.char_id, "latest_area", int(value))
         
         def add_inventory_evidence(self, name, desc, image):
             inventory = self.area.area_manager.get_character_data(self.char_id, "inventory", list())
-            inventory.append((name, desc, image))
+            inventory.append([name, desc, image])
             self.area.area_manager.set_character_data(self.char_id, "inventory", inventory)
         
         def remove_inventory_evidence(self, index):
@@ -2106,7 +2181,7 @@ class ClientManager:
             Change the character's current position in the area.
             :param pos: position in area (Default value = '')
             """
-            if len(self.area.pos_lock) > 0 and not (pos in self.area.pos_lock):
+            if len(self.area.pos_lock) > 0 and not (pos in self.area.pos_lock) and pos != self.area.pos_dark:
                 poslist = ", ".join(str(l) for l in self.area.pos_lock)
                 raise ClientError(f"Invalid pos! Available pos are {poslist}.")
             if self.hidden_in is not None:

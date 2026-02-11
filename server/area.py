@@ -917,9 +917,13 @@ class Area:
     def is_char_available(self, char_id):
         """
         Check if a character is available for use.
+        Area Owners occupying a character is ignored as a condition.
         :param char_id: character ID
         """
-        return char_id not in [x.char_id for x in self.clients]
+        for c in self.clients:
+            if char_id == c.char_id and c not in self.owners:
+                return False
+        return True
 
     def get_rand_avail_char_id(self):
         """Get a random available character ID."""
@@ -980,6 +984,29 @@ class Area:
         self.send_owner_command(
             "CT", f"[{self.id}]" + self.server.config["hostname"], msg, "1"
         )
+
+    def broadcast_action(self, client, msg):
+        """
+        Broadcast an Action message to all clients in the area who are listening to actions.
+        :param msg: message
+        """
+        cmd = "CT"
+        msg = f"[❗] [{client.id}] {client.showname} action:\n{msg}"
+        for c in self.clients:
+            if not c.ooc_actions:
+                continue
+            c.send_command(cmd, self.server.config["hostname"], msg, "1")
+
+        for c in self.owners:
+            if c in self.clients:
+                continue
+            if not c.ooc_actions:
+                continue
+            if (
+                c.remote_listen == 3
+                or c.remote_listen == 2
+            ):
+                c.send_command(cmd, f"[{self.id}]" + self.server.config["hostname"], msg, "1")
 
     def send_ic(self,
                 client=None,
@@ -1465,18 +1492,18 @@ class Area:
                 chara_client_info["afk"] = str(c in self.afkers)
 
                 #Append the Showname
-                ## 1.5
+                # 1.5
                 player_stuff.append(str(c.showname))
                 chara_client_info["showname"] = str(c.showname)
 
-                ## 1.5.1
+                # 1.5.1
                 
 
                 #Append the Character Name
-                ## 1.5
+                # 1.5
                 # if(c.icon_visible):
                 char_folder = "Spectator"
-                if self.area_manager.is_valid_char_id(c.char_id):
+                if c.char_id is not None and self.area_manager.is_valid_char_id(c.char_id):
                     char_folder = self.area_manager.char_list[c.char_id]
                 player_stuff.append(str(char_folder))
                 chara_client_info["character"] = str(char_folder)
@@ -1778,9 +1805,6 @@ class Area:
         self.music_looping = loop
         self.music_effects = effects
         self.send_command("MC", name, cid, showname, loop, 0, effects)
-        # Broadcast for the rest
-        for area in self.broadcast_list:
-            area.play_music(name, cid, loop, showname, effects)
 
     def can_send_message(self, client):
         """
@@ -2041,7 +2065,7 @@ class Area:
 
         update_clients = []
         for c in clients:
-            allowed = c.is_mod or c in self.owners
+            allowed = (c.is_mod or c in self.owners) and not c.available_areas_only
             area_list = c.get_area_list(allowed, allowed)
             if refresh or c.local_area_list != area_list:
                 update_clients.append(c)

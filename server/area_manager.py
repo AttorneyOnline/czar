@@ -107,6 +107,7 @@ class AreaManager:
         self.can_spectate = True
         self.can_getareas = True
         self.passing_msg = False
+        self.autokick_to_latest_area = False
         # /prefs
 
         # optimization memes
@@ -209,6 +210,7 @@ class AreaManager:
             "can_spectate",
             "can_getareas",
             "passing_msg",
+            "autokick_to_latest_area",
             "char_list_ref",
         ]
         for entry in list(set(load_list) - set(ignore)):
@@ -310,6 +312,7 @@ class AreaManager:
             "can_spectate",
             "can_getareas",
             "passing_msg",
+            "autokick_to_latest_area",
             "char_list_ref",
         ]
         for entry in list(set(save_list) - set(ignore)):
@@ -557,11 +560,11 @@ class AreaManager:
         """Get the default area."""
         return self.areas[0]
 
-    def get_area_by_name(self, name, case_sensitive=False):
+    def get_area_by_name(self, name, case_insensitive=True):
         """Get an area by name."""
         for area in self.areas:
-            a_name = area.name.lower() if case_sensitive else area.name
-            name = name.lower() if case_sensitive else name
+            a_name = area.name.lower() if case_insensitive else area.name
+            name = name.lower() if case_insensitive else name
             if a_name == name:
                 return area
         raise AreaError("Area not found.")
@@ -579,6 +582,33 @@ class AreaManager:
             if area.abbreviation == abbr:
                 return area
         raise AreaError("Area not found.")
+
+    def get_areas_by_args(self, args):
+        """
+        Gets targeted areas from a list of command arguments, and returns an area list.
+        """
+        area_list = []
+        arg_list = []
+        for arg in args:
+            arg = arg.strip()
+            # "all" keyword includes all areas
+            if arg.lower() == "all":
+                # MAKE SURE TO RETURN A COPY AND NOT A DIRECT REFERENCE OR YOU'RE GONNA BE IN A WORLD OF HURT
+                return self.areas.copy()
+            # If arg is area range, e.g. 1-12, extend list by that range
+            a_range = arg.split('-')
+            if len(a_range) == 2 and a_range[0].strip().isnumeric() and a_range[1].strip().isnumeric():
+                # unpack the range, turn it into a list and add it to the arglist
+                arg_list += [*range(int(a_range[0]), int(a_range[1])+1)]
+                continue
+            # Otherwise, just append the arg
+            arg_list.append(arg.lower())
+        for area in self.areas:
+            if area.id in arg_list or \
+               str(area.id) in arg_list or \
+               area.name.lower() in arg_list:
+                area_list.append(area)
+        return area_list
 
     def send_command(self, cmd, *args):
         """
@@ -615,7 +645,6 @@ class AreaManager:
             area.send_command("CT", area.server.config["hostname"], msg, "1")
 
     def update_subtheme(self, client):
-        client.subtheme = self.subtheme
         # GM is DRO client's "gamemode"
         client.send_command("GM", self.subtheme)
         # Set the time of day as well
@@ -629,6 +658,7 @@ class AreaManager:
                 client.send_command("ST", self.time_of_day, "1")
             else:
                 client.send_command("ST", self.subtheme, "1")
+        client.subtheme = self.subtheme
         
     def broadcast_subtheme(self):
         for client in self.clients:
