@@ -55,14 +55,14 @@ def ooc_cmd_help(client, arg):
 
     if arg == "":
         msg = inspect.cleandoc("""
-        Welcome to KFO-Server! You can use /help <command> on any known
+        Welcome to Czar! You can use /help <command> on any known
         command to get up-to-date help on it.
         You may also use /help <category> to see available commands for that category.
 
         If you don't understand a specific core feature, check the official
         repository for more information:
 
-        https://github.com/Crystalwarrior/KFO-Server/blob/master/README.md 
+        https://github.com/AttorneyOnline/czar/blob/master/README.md
 
         Available Categories:
         """)

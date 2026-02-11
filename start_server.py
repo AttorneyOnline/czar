@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from server.kfoserver import KFOServer
+from server.czar import CzarServer
 
 
 def main():
@@ -9,12 +9,12 @@ def main():
         print("Config folder not found, copying from config_sample...")
         shutil.copytree("config_sample", "config")
 
-    server = KFOServer()
+    server = CzarServer()
     server.start()
 
 
 if __name__ == "__main__":
-    print("KFO-Server - an Attorney Online server")
+    print("Czar - an Attorney Online server")
     try:
         main()
     except KeyboardInterrupt:

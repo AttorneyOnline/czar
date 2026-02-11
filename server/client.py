@@ -253,19 +253,13 @@ class Client:
                     if len(args) > 16 and args[16]:
                         charid_pair = str(args[16])
                     self_offset_x = 0
-                    self_offset_y = 0
                     if len(args) > 19 and args[19]:
                         offset = str(args[19]).replace("<and>", "&").split("&")
                         self_offset_x = offset[0]
-                        if len(offset) > 1:
-                            self_offset_y = offset[1]
                     offset_pair_x = 0
-                    offset_pair_y = 0
                     if len(args) > 20 and args[20]:
                         offset = str(args[19]).replace("<and>", "&").split("&")
                         offset_pair_x = offset[0]
-                        if len(offset) > 1:
-                            offset_pair_y = offset[1]
 
                     self_offset_x_dro = 500
                     if self_offset_x:
@@ -289,10 +283,6 @@ class Client:
                         pair_jsn_packet["data"]["last_sprite"] = other_emote
                         pair_jsn_packet["data"]["flipped"] = other_flip
 
-                        # no y offset is supported and on DRO Client, the pairing offsets are measured in pixels rather than percentage
-                        offset_pair_x_dro = 500
-                        if offset_pair_x:
-                            offset_pair_x_dro = int((float(offset_pair_x) / 100) * 960 + 480)  # other_offset
                         pair_jsn_packet["data"]["self_offset"] = self_offset_x
                         pair_jsn_packet["data"]["offset_pair"] = offset_pair_x
 
@@ -366,7 +356,7 @@ class Client:
         else:
             timer = self.area.timers[timer_id - 1]
         if self.software == "DRO":
-            # configuration. There's no situation where these values are different on KFO-Server
+            # configuration. There's no situation where these values are different on Czar
             # step length cannot be manually modified yet
             self.send_timer_set_step_length(timer_id, -timer.interval)
             self.send_timer_set_firing_interval(timer_id, timer.interval)
@@ -574,13 +564,13 @@ class Client:
             if contains_URL(song):
                 checked = False
                 # Only if url music is configured to be allowed
-                if self.server.config["music_allow_url"] == True:
+                if self.server.config["music_allow_url"]:
                     if len(self.server.music_whitelist) <= 0:
                         checked = True
                     for line in self.server.music_whitelist:
                         if song.startswith(line):
                             checked = True
-                if checked == False:
+                if not checked:
                     self.send_ooc("This URL is not allowed.")
                     return
 
@@ -1963,7 +1953,7 @@ class Client:
             self.need_call_time = round(
                 time.time() * 1000.0 + int(self.server.config["need_webhook"]["delay"]) * 1000.0
             )
-        except:
+        except Exception:
             self.need_call_time = round(time.time() * 1000 + 60000)
 
     def can_call_case(self):

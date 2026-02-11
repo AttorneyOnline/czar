@@ -1,7 +1,7 @@
 [project]
-name = "kfo-server"
+name = "czar"
 version = "0.1.0"
-description = "KFO Attorney Online Server"
+description = "Czar Attorney Online Server"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

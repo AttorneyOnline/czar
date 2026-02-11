@@ -25,11 +25,11 @@ from server.medieval_parser import MedievalParser
 logger = logging.getLogger("main")
 
 
-class KFOServer:
-    """The main class for KFO-Server."""
+class CzarServer:
+    """The main class for Czar."""
 
     def __init__(self):
-        self.software = "KFO-Server"
+        self.software = "Czar"
         self.release = 3
         self.major_version = 3
         self.minor_version = 0

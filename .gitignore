@@ -67,3 +67,7 @@ coverage.xml
 
 # VSCode
 .vscode/
+
+# Claude stuff
+.claude/*
+!.claude/settings.json

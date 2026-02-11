@@ -5,6 +5,7 @@ from enum import Enum
 
 class ArgType(Enum):
     """Represents the data type of an argument for a network command."""
+
     STR = 1
     STR_OR_EMPTY = 2
     INT = 3

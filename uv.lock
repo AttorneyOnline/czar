@@ -486,7 +486,7 @@ wheels = [
 ]
 
 [[package]]
-name = "kfo-server"
+name = "czar"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
