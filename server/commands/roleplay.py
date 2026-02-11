@@ -808,9 +808,9 @@ def ooc_cmd_timer(client, arg):
         client.send_ooc(f"Timer {timer_id} is at {timer.static}")
 
         if timer_id == 0:
-            timer.hub = client.area.area_manager
+            timer.parent = client.area.area_manager
         else:
-            timer.area = client.area
+            timer.parent = client.area
 
         timer.caller = client
         if timer.schedule:
