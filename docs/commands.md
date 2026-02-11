@@ -1,5 +1,5 @@
 # Commands
-`<>` mean "required arguments", `[]` mean "optional arguments". Actual commands do not need these brackets. There's also short-hands, or "aliases" for all commands you can read about [here](https://github.com/Crystalwarrior/KFO-Server/blob/master/config_sample/command_aliases.yaml) - formatted left: alias, right: called command, note that servers may include additional aliases or choose to remove existing ones.
+`<>` mean "required arguments", `[]` mean "optional arguments". Actual commands do not need these brackets. There's also short-hands, or "aliases" for all commands you can read about [here](https://github.com/AttorneyOnline/czar/blob/master/config_sample/command_aliases.yaml) - formatted left: alias, right: called command, note that servers may include additional aliases or choose to remove existing ones.
 
 ## Admin
 * **motd**

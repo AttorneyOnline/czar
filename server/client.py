@@ -366,7 +366,7 @@ class Client:
         else:
             timer = self.area.timers[timer_id - 1]
         if self.software == "DRO":
-            # configuration. There's no situation where these values are different on KFO-Server
+            # configuration. There's no situation where these values are different on Czar
             # step length cannot be manually modified yet
             self.send_timer_set_step_length(timer_id, -timer.interval)
             self.send_timer_set_firing_interval(timer_id, timer.interval)

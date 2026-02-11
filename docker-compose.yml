@@ -1,7 +1,7 @@
 services:
-    kfo-server:
+    czar:
         build: .
-        image: kfo-server
+        image: czar
         ports:
             - 27016:27016
             - 50001:50001
