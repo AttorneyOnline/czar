@@ -355,8 +355,7 @@ class AOProtocol(asyncio.Protocol):
         # Parse MS arguments against known protocol schemas
         ms = parse_ms(args)
         if ms is None:
-            self.client.send_ooc(
-                f"Something went wrong! Please report this to the developers:\n{args}")
+            self.client.send_ooc(f"Something went wrong! Please report this to the developers:\n{args}")
             return
 
         # Extract fields from parsed message
