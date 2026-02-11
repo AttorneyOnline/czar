@@ -213,8 +213,7 @@ def ooc_cmd_area(client, arg):
     Usage: /area [id] or /area [name]
     """
     if arg == "":
-        client.send_area_list(
-            full=client.is_mod or client in client.area.owners)
+        client.send_area_list(full=(client.is_mod or client in client.area.owners) and not client.available_areas_only)
         return
 
     try:
@@ -249,7 +248,12 @@ def ooc_cmd_area_visible(client, arg):
     """
     if arg != "":
         raise ArgumentError("This command takes no arguments!")
-    client.send_area_list(full=False)
+    client.available_areas_only = not client.available_areas_only
+    toggle = "enabled" if client.available_areas_only else "disabled"
+    client.area.broadcast_area_list(client)
+    client.send_ooc(
+        f"You have {toggle} only displaying player-visible areas."
+    )
 
 
 def ooc_cmd_autogetarea(client, arg):
@@ -519,9 +523,6 @@ def ooc_cmd_area_kick(client, arg):
             old_area = c.area
             if len(args) >= 3:
                 target_pos = args[2]
-            client.send_ooc(
-                f"Attempting to kick [{c.id}] {c.showname} from [{old_area.id}] {old_area.name} to [{area.id}] {area.name}."
-            )
             c.set_area(area, target_pos)
             c.send_ooc(
                 f"You were kicked from [{old_area.id}] {old_area.name} to [{area.id}] {area.name}."
@@ -530,6 +531,9 @@ def ooc_cmd_area_kick(client, arg):
                 "area_kick", client, client.area, target=c, message=area.id
             )
             client.area.invite_list.discard(c.id)
+            client.send_ooc(
+                f"Kicked [{c.id}] {c.showname} from [{old_area.id}] {old_area.name} to [{area.id}] {area.name}."
+            )
     except ValueError:
         raise ArgumentError("Area ID must be a number.")
     except AreaError:
@@ -821,7 +825,7 @@ def ooc_cmd_desc(client, arg):
             raise ClientError("You may not do that while spectating!")
         arg = arg.strip()
         if arg == "":
-            ooc_cmd_desc_clear(client)
+            ooc_cmd_desc_clear(client, "")
             return
         if client.area.dark:
             if not client.is_mod and not (client in client.area.owners):
@@ -949,20 +953,13 @@ def ooc_cmd_area_broadcast(client, arg):
     /clear_area_broadcast to clear the list
     Usage: /area_broadcast <id(s)>
     """
-    args = arg.split()
+    args = shlex.split(arg)
     if len(args) <= 0:
         a_list = ", ".join([str(a.id) for a in client.area.broadcast_list])
         client.send_ooc(f"Current area broadcast list is {a_list}")
         return
-    if arg.lower() == "all":
-        args = []
-        for area in client.area.area_manager.areas:
-            args.append(area.id)
     try:
-        broadcast_list = []
-        for aid in args:
-            area = client.area.area_manager.get_area_by_id(int(aid))
-            broadcast_list.append(area)
+        broadcast_list = client.area.area_manager.get_areas_by_args(args)
         client.area.broadcast_list = broadcast_list
         a_list = ", ".join([str(a.id) for a in client.area.broadcast_list])
         client.send_ooc(f"Area's broadcast list is now {a_list}")
