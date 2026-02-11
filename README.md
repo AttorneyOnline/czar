@@ -1,7 +1,7 @@
 
 # Czar
 
-Czar is the official Python-based server for Attorney Online, forked from tsuserver3.
+Czar is a Python-based server for Attorney Online, forked from tsuserver3.
 
 If you are looking to use Czar to set up a server, see [Server setup](#server-setup) below.
 

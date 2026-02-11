@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Czar is the official Python server for Attorney Online (courtroom roleplay game). Forked from tsuserver3. Built on asyncio with a custom text-based network protocol.
+Czar is a Python server for Attorney Online (courtroom roleplay game). Forked from tsuserver3. Built on asyncio with a custom text-based network protocol.
 
 ## Commands
 
