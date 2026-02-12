@@ -1,4 +1,14 @@
 from typing import Callable, Optional
+from unittest.mock import MagicMock
+
+import oyaml as yaml
+
+from server.client import Client
+
+# Default config loaded from config_sample/config.yaml.
+# Tests can override individual keys via CommandClient(config={...}).
+with open("config_sample/config.yaml") as _f:
+    DEFAULT_CONFIG = yaml.safe_load(_f)
 
 
 class MockClient:
@@ -67,6 +77,49 @@ class MockServer:
     def remove_client(self, client):  # noqa: ARG002
         # Not needed for initial handshake tests
         pass
+
+
+class CommandClient:
+    """Mock client for testing command functions (ooc_cmd_*).
+
+    Provides realistic defaults for attributes that commands commonly access,
+    using the sample config as a base. Methods that would normally send data
+    over the wire (send_ooc, send_command, etc.) are MagicMock instances so
+    tests can use assert_called_*.
+
+    Real Client methods like auth_mod are bound to this object so tests
+    exercise production logic.
+
+    Args:
+        config: Dict of config overrides merged on top of DEFAULT_CONFIG.
+            Example: ``CommandClient(config={"modpass": "plaintext"})``
+    """
+
+    # Real Client methods to bind on CommandClient instances.
+    auth_mod = Client.auth_mod
+
+    def __init__(self, config=None):
+        merged = dict(DEFAULT_CONFIG)
+        if config:
+            merged.update(config)
+
+        self.server = MagicMock()
+        self.server.config = merged
+        self.server.command_aliases = {}
+
+        self.area = MagicMock()
+
+        self.is_mod = False
+        self.mod_profile_name = None
+        self.available_areas_only = False
+        self.ipid = "test-ipid"
+        self.id = 0
+        self.name = ""
+        self.showname = "TestUser"
+
+        # Wire-level methods are mocks so tests can inspect calls
+        self.send_ooc = MagicMock()
+        self.send_command = MagicMock()
 
 
 def make_protocol_factory(server) -> Callable[[], object]:
