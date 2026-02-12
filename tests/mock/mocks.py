@@ -12,20 +12,53 @@ with open("config_sample/config.yaml") as _f:
 
 
 class MockClient:
-    """
-    Minimal client object used by AOProtocol during the connection phase.
+    """Mock client for both protocol-level and command-level tests.
 
-    It wraps the raw asyncio transport so tests can observe bytes written by
-    the protocol via `send_command` and allows clean disconnection.
+    When constructed with a *transport* (protocol tests), ``send_command``
+    encodes AO packets onto the transport and ``disconnect`` closes it.
+
+    When constructed without a transport (command tests), ``send_command``
+    and ``send_ooc`` are MagicMock instances so tests can use
+    ``assert_called_*``.  The sample config is loaded as a base and
+    individual keys can be overridden via *config*.
+
+    Real Client methods (e.g. ``auth_mod``) are bound here so tests
+    exercise production logic.
+
+    Args:
+        transport: asyncio transport for protocol tests.
+        config: Dict of config overrides merged on top of DEFAULT_CONFIG.
+            Example: ``MockClient(config={"modpass": "plaintext"})``
     """
 
-    def __init__(self, transport):
+    # Real Client methods bound on MockClient instances.
+    auth_mod = Client.auth_mod
+
+    def __init__(self, transport=None, config=None):
         self.transport = transport
-        # A tiny identifier string used only for logging in the protocol
         self.ipid = "test-ipid"
-        # Optional references the real server might add; kept for parity
-        self.server = None
-        self.area = None
+        self.id = 0
+        self.name = ""
+        self.showname = "TestUser"
+        self.is_mod = False
+        self.mod_profile_name = None
+        self.available_areas_only = False
+
+        if transport is not None:
+            # Protocol-level: server/area set later by the protocol handler
+            self.server = None
+            self.area = None
+        else:
+            # Command-level: set up server config and mock sub-objects
+            merged = dict(DEFAULT_CONFIG)
+            if config:
+                merged.update(config)
+            self.server = MagicMock()
+            self.server.config = merged
+            self.server.command_aliases = {}
+            self.area = MagicMock()
+            self.send_ooc = MagicMock()
+            self.send_command = MagicMock()
 
     def send_command(self, command: str, *args) -> None:
         """Encode and write an AO-style command to the transport.
@@ -39,7 +72,6 @@ class MockClient:
         msg += "#%"
         self.transport.write(msg.encode("utf-8"))
 
-    # AOProtocol may call disconnect when timeouts happen
     def disconnect(self) -> None:
         try:
             self.transport.close()
@@ -77,49 +109,6 @@ class MockServer:
     def remove_client(self, client):  # noqa: ARG002
         # Not needed for initial handshake tests
         pass
-
-
-class CommandClient:
-    """Mock client for testing command functions (ooc_cmd_*).
-
-    Provides realistic defaults for attributes that commands commonly access,
-    using the sample config as a base. Methods that would normally send data
-    over the wire (send_ooc, send_command, etc.) are MagicMock instances so
-    tests can use assert_called_*.
-
-    Real Client methods like auth_mod are bound to this object so tests
-    exercise production logic.
-
-    Args:
-        config: Dict of config overrides merged on top of DEFAULT_CONFIG.
-            Example: ``CommandClient(config={"modpass": "plaintext"})``
-    """
-
-    # Real Client methods to bind on CommandClient instances.
-    auth_mod = Client.auth_mod
-
-    def __init__(self, config=None):
-        merged = dict(DEFAULT_CONFIG)
-        if config:
-            merged.update(config)
-
-        self.server = MagicMock()
-        self.server.config = merged
-        self.server.command_aliases = {}
-
-        self.area = MagicMock()
-
-        self.is_mod = False
-        self.mod_profile_name = None
-        self.available_areas_only = False
-        self.ipid = "test-ipid"
-        self.id = 0
-        self.name = ""
-        self.showname = "TestUser"
-
-        # Wire-level methods are mocks so tests can inspect calls
-        self.send_ooc = MagicMock()
-        self.send_command = MagicMock()
 
 
 def make_protocol_factory(server) -> Callable[[], object]:

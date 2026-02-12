@@ -4,12 +4,12 @@ import pytest
 
 from server.commands.admin import ooc_cmd_login
 from server.exceptions import ArgumentError, ClientError
-from tests.mock.mocks import CommandClient
+from tests.mock.mocks import MockClient
 
 
 @patch("server.commands.admin.database")
 def test_login_success(mock_db):
-    client = CommandClient()
+    client = MockClient()
     ooc_cmd_login(client, "mod")
 
     assert client.is_mod is True
@@ -22,14 +22,14 @@ def test_login_success(mock_db):
 
 @patch("server.commands.admin.database")
 def test_login_no_password_raises(mock_db):
-    client = CommandClient()
+    client = MockClient()
     with pytest.raises(ArgumentError, match="You must specify the password."):
         ooc_cmd_login(client, "")
 
 
 @patch("server.commands.admin.database")
 def test_login_wrong_password_raises(mock_db):
-    client = CommandClient()
+    client = MockClient()
     with pytest.raises(ClientError, match="Invalid password."):
         ooc_cmd_login(client, "wrong")
 
@@ -38,7 +38,7 @@ def test_login_wrong_password_raises(mock_db):
 
 @patch("server.commands.admin.database")
 def test_login_already_logged_in_raises(mock_db):
-    client = CommandClient()
+    client = MockClient()
     client.is_mod = True
     with pytest.raises(ClientError, match="Already logged in."):
         ooc_cmd_login(client, "mod")
@@ -47,7 +47,7 @@ def test_login_already_logged_in_raises(mock_db):
 @patch("server.commands.admin.database")
 def test_login_simple_string_modpass(mock_db):
     """When modpass is a plain string instead of a dict."""
-    client = CommandClient(config={"modpass": "plainpass"})
+    client = MockClient(config={"modpass": "plainpass"})
     ooc_cmd_login(client, "plainpass")
 
     assert client.is_mod is True
